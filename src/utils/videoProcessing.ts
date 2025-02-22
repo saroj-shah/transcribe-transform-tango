@@ -18,6 +18,22 @@ interface CustomSummarizationOutput {
   summary_text: string;
 }
 
+// NLLB language code mapping
+const languageToNLLB: Record<string, string> = {
+  'en': 'eng_Latn',
+  'es': 'spa_Latn',
+  'fr': 'fra_Latn',
+  'de': 'deu_Latn',
+  'it': 'ita_Latn',
+  'pt': 'por_Latn',
+  'nl': 'nld_Latn',
+  'pl': 'pol_Latn',
+  'ru': 'rus_Cyrl',
+  'ja': 'jpn_Jpan',
+  'ko': 'kor_Hang',
+  'zh': 'zho_Hans',
+};
+
 export async function transcribeVideo(videoFile: File): Promise<TranscriptionResult> {
   try {
     const transcriber = await pipeline("automatic-speech-recognition", "Xenova/whisper-small");
@@ -64,22 +80,41 @@ export async function detectLanguage(text: string): Promise<string> {
 }
 
 export async function translateText(text: string, targetLanguage: string): Promise<string> {
+  if (!targetLanguage || !languageToNLLB[targetLanguage]) {
+    throw new Error(`Unsupported target language: ${targetLanguage}`);
+  }
+
   try {
     const translator = await pipeline(
       "translation",
       "Xenova/nllb-200-distilled-600M"
     );
 
+    // Get the NLLB language codes
+    const nllbTargetLang = languageToNLLB[targetLanguage];
+    
+    console.log("Translating to:", nllbTargetLang); // Debug log
+
     const result = await translator(text, {
       max_new_tokens: 512,
-      do_sample: false
+      do_sample: false,
+      src_lang: 'eng_Latn', // Default source language
+      tgt_lang: nllbTargetLang,
     } as TextGenerationConfig);
 
     const translationResult = result as unknown as CustomTranslationOutput[];
+    if (!translationResult?.[0]?.translation_text) {
+      throw new Error("Translation failed - invalid response format");
+    }
+    
     return translationResult[0].translation_text;
   } catch (error) {
-    console.error("Error translating text:", error);
-    throw error;
+    console.error("Error translating:", error);
+    throw new Error(
+      error instanceof Error 
+        ? error.message 
+        : "Translation failed - please try again"
+    );
   }
 }
 
