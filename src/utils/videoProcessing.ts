@@ -1,6 +1,6 @@
 
 import { pipeline } from "@huggingface/transformers";
-import type { AutomaticSpeechRecognitionOutput, GenerationConfig } from "@huggingface/transformers";
+import type { AutomaticSpeechRecognitionOutput, TextGenerationConfig } from "@huggingface/transformers";
 
 interface TranscriptionResult {
   text: string;
@@ -11,11 +11,11 @@ interface TranscriptionResult {
 }
 
 interface CustomTranslationOutput {
-  generated_text: string;
+  translation_text: string;
 }
 
 interface CustomSummarizationOutput {
-  generated_text: string;
+  summary_text: string;
 }
 
 export async function transcribeVideo(videoFile: File): Promise<TranscriptionResult> {
@@ -73,9 +73,10 @@ export async function translateText(text: string, targetLanguage: string): Promi
     const result = await translator(text, {
       max_new_tokens: 512,
       do_sample: false
-    } as GenerationConfig) as CustomTranslationOutput[];
+    } as TextGenerationConfig);
 
-    return result[0].generated_text;
+    const translationResult = result as unknown as CustomTranslationOutput[];
+    return translationResult[0].translation_text;
   } catch (error) {
     console.error("Error translating text:", error);
     throw error;
@@ -94,9 +95,10 @@ export async function generateSummary(text: string): Promise<string> {
       min_new_tokens: 50,
       do_sample: false,
       early_stopping: true
-    } as GenerationConfig) as CustomSummarizationOutput[];
+    } as TextGenerationConfig);
 
-    return result[0].generated_text;
+    const summaryResult = result as unknown as CustomSummarizationOutput[];
+    return summaryResult[0].summary_text;
   } catch (error) {
     console.error("Error generating summary:", error);
     throw error;
