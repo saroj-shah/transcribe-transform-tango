@@ -1,6 +1,6 @@
 
 import { pipeline } from "@huggingface/transformers";
-import type { AutomaticSpeechRecognitionOutput, TextGenerationConfig } from "@huggingface/transformers";
+import type { AutomaticSpeechRecognitionOutput } from "@huggingface/transformers";
 
 interface TranscriptionResult {
   text: string;
@@ -10,7 +10,13 @@ interface TranscriptionResult {
   }>;
 }
 
-interface CustomTranslationOutput {
+// Define proper types for the NLLB translation
+interface NLLBTranslationConfig {
+  src_lang: string;
+  tgt_lang: string;
+}
+
+interface NLLBTranslationOutput {
   translation_text: string;
 }
 
@@ -93,22 +99,19 @@ export async function translateText(text: string, targetLanguage: string): Promi
     const nllbTargetLang = languageToNLLB[targetLanguage];
     console.log("Translating to:", nllbTargetLang);
 
-    const result = await translator(text, {
+    const translationConfig: NLLBTranslationConfig = {
       src_lang: 'eng_Latn',
       tgt_lang: nllbTargetLang,
-    });
+    };
 
-    // Log the result for debugging
+    const result = await translator(text, translationConfig) as NLLBTranslationOutput[];
     console.log("Translation result:", result);
 
-    if (!result || (Array.isArray(result) && !result[0])) {
+    if (!result || !Array.isArray(result) || !result[0]) {
       throw new Error("Translation failed - no result returned");
     }
 
-    const translatedText = Array.isArray(result) 
-      ? result[0].translation_text 
-      : (result as any).translation_text;
-
+    const translatedText = result[0].translation_text;
     if (!translatedText) {
       throw new Error("Translation failed - invalid response format");
     }
@@ -132,11 +135,11 @@ export async function generateSummary(text: string): Promise<string> {
     );
 
     const result = await summarizer(text, {
-      max_new_tokens: 150,
-      min_new_tokens: 50,
+      max_length: 150,
+      min_length: 50,
       do_sample: false,
       early_stopping: true
-    } as TextGenerationConfig);
+    });
 
     const summaryResult = result as unknown as CustomSummarizationOutput[];
     return summaryResult[0].summary_text;
