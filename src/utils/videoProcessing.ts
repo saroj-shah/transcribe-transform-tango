@@ -1,6 +1,6 @@
 
 import { pipeline } from "@huggingface/transformers";
-import type { AutomaticSpeechRecognitionOutput, GenerationConfig } from "@huggingface/transformers";
+import type { AutomaticSpeechRecognitionOutput, TextGenerationConfig } from "@huggingface/transformers";
 
 interface TranscriptionResult {
   text: string;
@@ -11,7 +11,7 @@ interface TranscriptionResult {
 }
 
 // Define proper types for the NLLB translation
-interface NLLBTranslationConfig extends GenerationConfig {
+interface NLLBTranslationConfig extends TextGenerationConfig {
   src_lang: string;
   tgt_lang: string;
 }
@@ -99,16 +99,18 @@ export async function translateText(text: string, targetLanguage: string): Promi
     const nllbTargetLang = languageToNLLB[targetLanguage];
     console.log("Translating to:", nllbTargetLang);
 
-    const translationConfig: Partial<NLLBTranslationConfig> = {
-      max_length: 512,
-      min_length: 0,
-      temperature: 1.0,
-      num_beams: 1,
+    const translationConfig: TextGenerationConfig = {
       src_lang: 'eng_Latn',
       tgt_lang: nllbTargetLang,
-    };
+      temperature: 1.0,
+      top_k: 50,
+      top_p: 0.9,
+      no_repeat_ngram_size: 3,
+      num_beams: 1,
+      num_return_sequences: 1
+    } as TextGenerationConfig;
 
-    const result = await translator(text, translationConfig as GenerationConfig) as NLLBTranslationOutput[];
+    const result = await translator(text, translationConfig) as NLLBTranslationOutput[];
     console.log("Translation result:", result);
 
     if (!result || !Array.isArray(result) || !result[0]) {
@@ -138,16 +140,16 @@ export async function generateSummary(text: string): Promise<string> {
       "Xenova/distilbart-cnn-6-6"
     );
 
-    const summaryConfig: Partial<GenerationConfig> = {
-      max_length: 150,
-      min_length: 50,
+    const summaryConfig: TextGenerationConfig = {
       temperature: 1.0,
+      top_k: 50,
+      top_p: 0.9,
+      no_repeat_ngram_size: 3,
       num_beams: 1,
-      do_sample: false,
-      early_stopping: true
-    };
+      num_return_sequences: 1
+    } as TextGenerationConfig;
 
-    const result = await summarizer(text, summaryConfig as GenerationConfig);
+    const result = await summarizer(text, summaryConfig);
     const summaryResult = result as unknown as CustomSummarizationOutput[];
     return summaryResult[0].summary_text;
   } catch (error) {
