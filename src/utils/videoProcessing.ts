@@ -10,14 +10,6 @@ interface TranscriptionResult {
   }>;
 }
 
-interface TranslationResult {
-  generated_text: string;
-}
-
-interface SummaryResult {
-  generated_text: string;
-}
-
 export async function transcribeVideo(videoFile: File): Promise<TranscriptionResult> {
   try {
     const transcriber = await pipeline("automatic-speech-recognition", "Xenova/whisper-small");
@@ -71,11 +63,16 @@ export async function translateText(text: string, targetLanguage: string): Promi
     );
 
     const result = await translator(text, {
-      max_new_tokens: 512,
-      target_language: targetLanguage
-    }) as TranslationResult[];
+      max_length: 512,
+      src_lang: "eng_Latn",
+      tgt_lang: targetLanguage
+    });
 
-    return result[0].generated_text;
+    // Handle the result based on its actual structure
+    if (Array.isArray(result)) {
+      return result[0].translation_text;
+    }
+    return result.translation_text;
   } catch (error) {
     console.error("Error translating text:", error);
     throw error;
@@ -90,12 +87,16 @@ export async function generateSummary(text: string): Promise<string> {
     );
 
     const result = await summarizer(text, {
-      max_new_tokens: 150,
-      min_new_tokens: 50,
+      max_length: 150,
+      min_length: 50,
       do_sample: false
-    }) as SummaryResult[];
+    });
 
-    return result[0].generated_text;
+    // Handle the result based on its actual structure
+    if (Array.isArray(result)) {
+      return result[0].summary_text;
+    }
+    return result.summary_text;
   } catch (error) {
     console.error("Error generating summary:", error);
     throw error;
