@@ -5,15 +5,20 @@ export async function transcribeVideo(videoFile: File): Promise<any> {
   try {
     const transcriber = await pipeline(
       "automatic-speech-recognition",
-      "Xenova/whisper-small",
-      { chunk_length: 30, stride_length: 5 }
+      "Xenova/whisper-small"
     );
 
     const audioContext = new AudioContext();
     const arrayBuffer = await videoFile.arrayBuffer();
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    // Convert AudioBuffer to format expected by the model
+    const audioData = {
+      array: audioBuffer.getChannelData(0),
+      sampling_rate: audioBuffer.sampleRate
+    };
 
-    const result = await transcriber(audioBuffer, {
+    const result = await transcriber(audioData, {
       return_timestamps: true,
     });
 
@@ -32,7 +37,11 @@ export async function detectLanguage(text: string) {
     );
 
     const result = await classifier(text);
-    return result[0].label;
+    // Handle both single and array results
+    const classification = Array.isArray(result) ? result[0] : result;
+    return classification.hasOwnProperty('label') 
+      ? (classification as any).label 
+      : Object.keys(classification)[0];
   } catch (error) {
     console.error("Error detecting language:", error);
     throw error;
