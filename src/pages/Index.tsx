@@ -71,17 +71,22 @@ const Index = () => {
     setIsTranslating(true);
     try {
       const translatedSegments = await Promise.all(
-        transcript.map(async (segment) => ({
-          ...segment,
-          text: await translateText(segment.text, targetLanguage),
-        }))
+        transcript.map(async (segment) => {
+          const translatedText = await translateText(segment.text, targetLanguage);
+          console.log("Translated segment:", translatedText); // Debug log
+          return {
+            ...segment,
+            text: translatedText,
+          };
+        })
       );
       
+      console.log("All translated segments:", translatedSegments); // Debug log
       setTranslatedTranscript(translatedSegments);
       toast.success("Translation completed!");
     } catch (error) {
       console.error("Error translating:", error);
-      toast.error("Error translating. Please try again.");
+      toast.error(error instanceof Error ? error.message : "Error translating. Please try again.");
     } finally {
       setIsTranslating(false);
     }

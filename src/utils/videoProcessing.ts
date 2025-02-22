@@ -90,28 +90,30 @@ export async function translateText(text: string, targetLanguage: string): Promi
       "Xenova/nllb-200-distilled-600M"
     );
 
-    // Get the NLLB language codes
     const nllbTargetLang = languageToNLLB[targetLanguage];
-    
-    console.log("Translating to:", nllbTargetLang); // Debug log
+    console.log("Translating to:", nllbTargetLang);
 
-    const config = {
-      max_new_tokens: 512,
-      min_new_tokens: 50,
-      do_sample: false,
-      early_stopping: true,
+    const result = await translator(text, {
       src_lang: 'eng_Latn',
       tgt_lang: nllbTargetLang,
-    } as unknown as TextGenerationConfig;
+    });
 
-    const result = await translator(text, config);
+    // Log the result for debugging
+    console.log("Translation result:", result);
 
-    const translationResult = result as unknown as CustomTranslationOutput[];
-    if (!translationResult?.[0]?.translation_text) {
+    if (!result || (Array.isArray(result) && !result[0])) {
+      throw new Error("Translation failed - no result returned");
+    }
+
+    const translatedText = Array.isArray(result) 
+      ? result[0].translation_text 
+      : (result as any).translation_text;
+
+    if (!translatedText) {
       throw new Error("Translation failed - invalid response format");
     }
-    
-    return translationResult[0].translation_text;
+
+    return translatedText;
   } catch (error) {
     console.error("Error translating:", error);
     throw new Error(
