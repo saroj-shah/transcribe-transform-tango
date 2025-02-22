@@ -95,12 +95,16 @@ export async function translateText(text: string, targetLanguage: string): Promi
     
     console.log("Translating to:", nllbTargetLang); // Debug log
 
-    const result = await translator(text, {
+    const config = {
       max_new_tokens: 512,
+      min_new_tokens: 50,
       do_sample: false,
-      src_lang: 'eng_Latn', // Default source language
+      early_stopping: true,
+      src_lang: 'eng_Latn',
       tgt_lang: nllbTargetLang,
-    } as TextGenerationConfig);
+    } as unknown as TextGenerationConfig;
+
+    const result = await translator(text, config);
 
     const translationResult = result as unknown as CustomTranslationOutput[];
     if (!translationResult?.[0]?.translation_text) {
