@@ -1,49 +1,52 @@
 
 import { pipeline } from "@huggingface/transformers";
-import type { TranslationOutput } from "@huggingface/transformers";
+import type { Pipeline } from "@huggingface/transformers";
 
-export async function transcribeVideo(videoFile: File): Promise<any> {
+interface TranscriptionResult {
+  text: string;
+  chunks: Array<{
+    text: string;
+    timestamp: [number, number];
+  }>;
+}
+
+export async function transcribeVideo(videoFile: File): Promise<TranscriptionResult> {
   try {
-    const transcriber = await pipeline(
-      "automatic-speech-recognition",
-      "Xenova/whisper-small"
-    );
-
+    const transcriber = await pipeline("automatic-speech-recognition", "Xenova/whisper-small");
+    
     const audioContext = new AudioContext();
     const arrayBuffer = await videoFile.arrayBuffer();
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
     
-    // Convert AudioBuffer to format expected by the model
-    const audioData = {
-      data: audioBuffer.getChannelData(0),
-      sampling_rate: audioBuffer.sampleRate
-    };
-
-    const result = await transcriber(audioData, {
+    const result = await transcriber(audioBuffer.getChannelData(0), {
       return_timestamps: true,
+      chunk_length: 30,
+      stride_length: 5
     });
 
-    return result;
+    return result as TranscriptionResult;
   } catch (error) {
     console.error("Error transcribing video:", error);
     throw error;
   }
 }
 
-export async function detectLanguage(text: string) {
+export async function detectLanguage(text: string): Promise<string> {
   try {
     const classifier = await pipeline(
       "text-classification",
-      "Xenova/language-detection-fine-tuned-on-xlm-roberta-base",
+      "Xenova/language-detection-fine-tuned-on-xlm-roberta-base"
     );
 
     const result = await classifier(text);
     const classification = Array.isArray(result) ? result[0] : result;
-    return classification.hasOwnProperty('label') 
-      ? (classification as any).label 
-      : Object.keys(classification)[0];
-  }
-  catch (error) {
+    
+    if (typeof classification === 'object' && classification !== null) {
+      return (classification as any).label || 'unknown';
+    }
+    
+    return 'unknown';
+  } catch (error) {
     console.error("Error detecting language:", error);
     throw error;
   }
@@ -57,10 +60,11 @@ export async function translateText(text: string, targetLanguage: string): Promi
     );
 
     const result = await translator(text, {
+      src_lang: "eng_Latn",
       tgt_lang: targetLanguage,
-    }) as TranslationOutput[];
+    });
 
-    return result[0].translation_text || '';
+    return Array.isArray(result) ? result[0].generated_text : result.generated_text;
   } catch (error) {
     console.error("Error translating text:", error);
     throw error;
@@ -75,11 +79,12 @@ export async function generateSummary(text: string): Promise<string> {
     );
 
     const result = await summarizer(text, {
-      max_length: 150,
-      min_length: 50,
+      max_new_tokens: 150,
+      min_new_tokens: 50,
+      do_sample: false
     });
 
-    return result[0].summary_text;
+    return Array.isArray(result) ? result[0].generated_text : result.generated_text;
   } catch (error) {
     console.error("Error generating summary:", error);
     throw error;

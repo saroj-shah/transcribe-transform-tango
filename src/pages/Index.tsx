@@ -119,7 +119,7 @@ const Index = () => {
     }
   };
 
-  const generateSummary = async () => {
+  const handleGenerateSummary = async () => {
     if (!transcript.length) {
       toast.error("Please process the video first");
       return;
@@ -127,8 +127,8 @@ const Index = () => {
 
     try {
       const fullText = transcript.map(segment => segment.text).join(" ");
-      const summary = await generateSummary(fullText);
-      setSummary(summary);
+      const summaryText = await generateSummary(fullText);
+      setSummary(summaryText);
       toast.success("Summary generated successfully!");
     } catch (error) {
       console.error("Error generating summary:", error);
@@ -274,7 +274,7 @@ const Index = () => {
 
                         <div className="border-t pt-6">
                           <button
-                            onClick={generateSummary}
+                            onClick={handleGenerateSummary}
                             className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Generate Summary
