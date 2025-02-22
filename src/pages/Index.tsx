@@ -6,7 +6,7 @@ import LanguageSelector from "@/components/LanguageSelector";
 import VideoPlayer from "@/components/VideoPlayer";
 import TranscriptDisplay from "@/components/TranscriptDisplay";
 import QASection from "@/components/QASection";
-import { transcribeVideo, detectLanguage, translateText } from "@/utils/videoProcessing";
+import { transcribeVideo, detectLanguage, translateText, generateSummary } from "@/utils/videoProcessing";
 import type { TranscriptSegment } from "@/components/TranscriptDisplay";
 import { supabase } from "@/integrations/supabase/client";
 

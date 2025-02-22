@@ -1,6 +1,6 @@
 
 import { pipeline } from "@huggingface/transformers";
-import type { Pipeline } from "@huggingface/transformers";
+import type { AutomaticSpeechRecognitionOutput, TranslationOutput } from "@huggingface/transformers";
 
 interface TranscriptionResult {
   text: string;
@@ -20,11 +20,14 @@ export async function transcribeVideo(videoFile: File): Promise<TranscriptionRes
     
     const result = await transcriber(audioBuffer.getChannelData(0), {
       return_timestamps: true,
-      chunk_length: 30,
-      stride_length: 5
-    });
+      chunk_length_s: 30,
+      stride_length_s: 5
+    }) as AutomaticSpeechRecognitionOutput;
 
-    return result as TranscriptionResult;
+    return {
+      text: result.text,
+      chunks: result.chunks || []
+    };
   } catch (error) {
     console.error("Error transcribing video:", error);
     throw error;
@@ -60,11 +63,11 @@ export async function translateText(text: string, targetLanguage: string): Promi
     );
 
     const result = await translator(text, {
-      src_lang: "eng_Latn",
-      tgt_lang: targetLanguage,
-    });
+      max_length: 512,
+      tgt_lang: targetLanguage
+    }) as TranslationOutput[];
 
-    return Array.isArray(result) ? result[0].generated_text : result.generated_text;
+    return result[0].translation_text;
   } catch (error) {
     console.error("Error translating text:", error);
     throw error;
@@ -79,12 +82,12 @@ export async function generateSummary(text: string): Promise<string> {
     );
 
     const result = await summarizer(text, {
-      max_new_tokens: 150,
-      min_new_tokens: 50,
+      max_length: 150,
+      min_length: 50,
       do_sample: false
     });
 
-    return Array.isArray(result) ? result[0].generated_text : result.generated_text;
+    return result[0].summary_text;
   } catch (error) {
     console.error("Error generating summary:", error);
     throw error;
