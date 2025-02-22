@@ -14,7 +14,7 @@ export async function transcribeVideo(videoFile: File): Promise<any> {
     
     // Convert AudioBuffer to format expected by the model
     const audioData = {
-      array: audioBuffer.getChannelData(0),
+      audio: audioBuffer.getChannelData(0),
       sampling_rate: audioBuffer.sampleRate
     };
 
@@ -42,8 +42,28 @@ export async function detectLanguage(text: string) {
     return classification.hasOwnProperty('label') 
       ? (classification as any).label 
       : Object.keys(classification)[0];
-  } catch (error) {
+  }
+  catch (error) {
     console.error("Error detecting language:", error);
+    throw error;
+  }
+}
+
+export async function translateText(text: string, targetLanguage: string): Promise<string> {
+  try {
+    const translator = await pipeline(
+      "translation",
+      "Xenova/nllb-200-distilled-600M"
+    );
+
+    const result = await translator(text, {
+      src_lang: "eng_Latn",
+      tgt_lang: targetLanguage,
+    });
+
+    return result[0].translation_text;
+  } catch (error) {
+    console.error("Error translating text:", error);
     throw error;
   }
 }

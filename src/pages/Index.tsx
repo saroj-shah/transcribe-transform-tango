@@ -6,8 +6,9 @@ import VideoUpload from "@/components/VideoUpload";
 import LanguageSelector from "@/components/LanguageSelector";
 import VideoPlayer from "@/components/VideoPlayer";
 import TranscriptDisplay from "@/components/TranscriptDisplay";
-import { transcribeVideo, detectLanguage } from "@/utils/videoProcessing";
+import { transcribeVideo, detectLanguage, translateText } from "@/utils/videoProcessing";
 import type { TranscriptSegment } from "@/components/TranscriptDisplay";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [video, setVideo] = useState<File | string | null>(null);
@@ -15,9 +16,13 @@ const Index = () => {
   const [targetLanguage, setTargetLanguage] = useState("");
   const [voiceLanguage, setVoiceLanguage] = useState("");
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
+  const [translatedTranscript, setTranslatedTranscript] = useState<TranscriptSegment[]>([]);
   const [currentTime, setCurrentTime] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [detectedLanguage, setDetectedLanguage] = useState<string>("");
+  const [audioUrl, setAudioUrl] = useState<string>("");
 
   const handleVideoSelect = async (file: File | string) => {
     setVideo(file);
@@ -26,7 +31,6 @@ const Index = () => {
       processVideo(file);
     } else {
       setVideoUrl(file);
-      // Handle URL video processing
       toast.error("URL video processing not implemented yet");
     }
   };
@@ -43,7 +47,6 @@ const Index = () => {
       
       setTranscript(segments);
       
-      // Detect language from the first few segments
       const sampleText = segments.slice(0, 3).map(s => s.text).join(" ");
       const language = await detectLanguage(sampleText);
       setDetectedLanguage(language);
@@ -54,6 +57,63 @@ const Index = () => {
       toast.error("Error processing video. Please try again.");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleTranslate = async () => {
+    if (!targetLanguage) {
+      toast.error("Please select a target language");
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const translatedSegments = await Promise.all(
+        transcript.map(async (segment) => ({
+          ...segment,
+          text: await translateText(segment.text, targetLanguage),
+        }))
+      );
+      
+      setTranslatedTranscript(translatedSegments);
+      toast.success("Translation completed!");
+    } catch (error) {
+      console.error("Error translating:", error);
+      toast.error("Error translating. Please try again.");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const generateVoiceover = async () => {
+    if (!translatedTranscript.length) {
+      toast.error("Please translate the content first");
+      return;
+    }
+
+    setIsGeneratingVoice(true);
+    try {
+      const text = translatedTranscript.map(segment => segment.text).join(" ");
+      
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text }
+      });
+
+      if (error) throw error;
+
+      const audioBlob = new Blob(
+        [Uint8Array.from(atob(data.audio), c => c.charCodeAt(0))],
+        { type: 'audio/mpeg' }
+      );
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+      
+      toast.success("Voice generation completed!");
+    } catch (error) {
+      console.error("Error generating voice:", error);
+      toast.error("Error generating voice. Please try again.");
+    } finally {
+      setIsGeneratingVoice(false);
     }
   };
 
@@ -95,6 +155,16 @@ const Index = () => {
                   source={videoUrl} 
                   onTimeUpdate={setCurrentTime}
                 />
+                
+                {audioUrl && (
+                  <div className="mt-4">
+                    <h3 className="text-lg font-semibold mb-2">Generated Audio</h3>
+                    <audio controls className="w-full">
+                      <source src={audioUrl} type="audio/mpeg" />
+                      Your browser does not support the audio element.
+                    </audio>
+                  </div>
+                )}
               </motion.section>
 
               {isProcessing ? (
@@ -140,6 +210,22 @@ const Index = () => {
                         label="Voice Generation Language"
                       />
                     </div>
+                    <div className="mt-6 space-x-4">
+                      <button
+                        onClick={handleTranslate}
+                        disabled={isTranslating || !targetLanguage}
+                        className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isTranslating ? "Translating..." : "Translate"}
+                      </button>
+                      <button
+                        onClick={generateVoiceover}
+                        disabled={isGeneratingVoice || !translatedTranscript.length}
+                        className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isGeneratingVoice ? "Generating Voice..." : "Generate Voice"}
+                      </button>
+                    </div>
                   </motion.section>
 
                   {transcript.length > 0 && (
@@ -148,10 +234,25 @@ const Index = () => {
                       animate={{ opacity: 1 }}
                       className="bg-white rounded-2xl shadow-lg p-8"
                     >
-                      <TranscriptDisplay 
-                        segments={transcript} 
-                        currentTime={currentTime}
-                      />
+                      <div className="space-y-8">
+                        <div>
+                          <h3 className="text-xl font-semibold mb-4">Original Transcript</h3>
+                          <TranscriptDisplay 
+                            segments={transcript} 
+                            currentTime={currentTime}
+                          />
+                        </div>
+                        
+                        {translatedTranscript.length > 0 && (
+                          <div>
+                            <h3 className="text-xl font-semibold mb-4">Translated Transcript</h3>
+                            <TranscriptDisplay 
+                              segments={translatedTranscript} 
+                              currentTime={currentTime}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </motion.section>
                   )}
                 </>
