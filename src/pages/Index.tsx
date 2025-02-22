@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -6,6 +5,7 @@ import VideoUpload from "@/components/VideoUpload";
 import LanguageSelector from "@/components/LanguageSelector";
 import VideoPlayer from "@/components/VideoPlayer";
 import TranscriptDisplay from "@/components/TranscriptDisplay";
+import QASection from "@/components/QASection";
 import { transcribeVideo, detectLanguage, translateText } from "@/utils/videoProcessing";
 import type { TranscriptSegment } from "@/components/TranscriptDisplay";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +23,8 @@ const Index = () => {
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [detectedLanguage, setDetectedLanguage] = useState<string>("");
   const [audioUrl, setAudioUrl] = useState<string>("");
+  const [summary, setSummary] = useState<string>("");
+  const [videoId, setVideoId] = useState<string>("");
 
   const handleVideoSelect = async (file: File | string) => {
     setVideo(file);
@@ -114,6 +116,23 @@ const Index = () => {
       toast.error("Error generating voice. Please try again.");
     } finally {
       setIsGeneratingVoice(false);
+    }
+  };
+
+  const generateSummary = async () => {
+    if (!transcript.length) {
+      toast.error("Please process the video first");
+      return;
+    }
+
+    try {
+      const fullText = transcript.map(segment => segment.text).join(" ");
+      const summary = await generateSummary(fullText);
+      setSummary(summary);
+      toast.success("Summary generated successfully!");
+    } catch (error) {
+      console.error("Error generating summary:", error);
+      toast.error("Error generating summary. Please try again.");
     }
   };
 
@@ -252,6 +271,28 @@ const Index = () => {
                             />
                           </div>
                         )}
+
+                        <div className="border-t pt-6">
+                          <button
+                            onClick={generateSummary}
+                            className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Generate Summary
+                          </button>
+
+                          {summary && (
+                            <div className="mt-4">
+                              <h3 className="text-xl font-semibold mb-2">Summary</h3>
+                              <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                                {summary}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="border-t pt-6">
+                          <QASection videoId={videoId} />
+                        </div>
                       </div>
                     </motion.section>
                   )}

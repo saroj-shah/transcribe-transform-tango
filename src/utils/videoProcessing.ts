@@ -1,5 +1,6 @@
 
 import { pipeline } from "@huggingface/transformers";
+import type { TranslationOutput } from "@huggingface/transformers";
 
 export async function transcribeVideo(videoFile: File): Promise<any> {
   try {
@@ -14,7 +15,7 @@ export async function transcribeVideo(videoFile: File): Promise<any> {
     
     // Convert AudioBuffer to format expected by the model
     const audioData = {
-      audio: audioBuffer.getChannelData(0),
+      data: audioBuffer.getChannelData(0),
       sampling_rate: audioBuffer.sampleRate
     };
 
@@ -37,7 +38,6 @@ export async function detectLanguage(text: string) {
     );
 
     const result = await classifier(text);
-    // Handle both single and array results
     const classification = Array.isArray(result) ? result[0] : result;
     return classification.hasOwnProperty('label') 
       ? (classification as any).label 
@@ -57,13 +57,31 @@ export async function translateText(text: string, targetLanguage: string): Promi
     );
 
     const result = await translator(text, {
-      src_lang: "eng_Latn",
       tgt_lang: targetLanguage,
-    });
+    }) as TranslationOutput[];
 
-    return result[0].translation_text;
+    return result[0].translation_text || '';
   } catch (error) {
     console.error("Error translating text:", error);
+    throw error;
+  }
+}
+
+export async function generateSummary(text: string): Promise<string> {
+  try {
+    const summarizer = await pipeline(
+      "summarization",
+      "Xenova/distilbart-cnn-6-6"
+    );
+
+    const result = await summarizer(text, {
+      max_length: 150,
+      min_length: 50,
+    });
+
+    return result[0].summary_text;
+  } catch (error) {
+    console.error("Error generating summary:", error);
     throw error;
   }
 }
